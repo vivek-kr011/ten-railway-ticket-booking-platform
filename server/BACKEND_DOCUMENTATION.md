@@ -1,5 +1,11 @@
 # Ticket Booking System Backend
 
+> Backend reference for the railway ticket booking application.
+
+This document describes the backend as implemented in the repository. It is
+documentation only and does not change application code, routes, models, or
+database behavior.
+
 ## 1. Overview
 
 The `server` folder contains a Node.js and Express REST API for a railway ticket booking system. It provides:
@@ -13,7 +19,7 @@ The `server` folder contains a Node.js and Express REST API for a railway ticket
 
 The backend is organized using a conventional Express layered structure:
 
-`routes -> controllers -> models -> MongoDB`
+`client/API consumer -> routes -> middleware -> controllers -> models -> MongoDB`
 
 Authentication and authorization are applied in the route layer through middleware before protected controllers are executed.
 
@@ -223,11 +229,19 @@ Station codes are unique. Update and delete validate the ObjectId; the single-st
 |---|---|---|---|---|
 | POST | `/` | None | `trainNumber`, `trainName`, `source`, `destination`, non-empty `classes[]` | `201 { message, train }` |
 | GET | `/` | None | Query: required `source`, `destination` station IDs | `200 { message, trains }` |
+| GET | `/search` | None | Query: required `source`, `destination`, `journeyDate` | `200 { message, results }` |
 | GET | `/:id` | None | Train ObjectId | `200 { message, train }` with stations populated |
 | PUT | `/:id` | None | Full train body | `200 { message, train }` |
 | DELETE | `/:id` | None | Train ObjectId | `200 { message, train }` |
 
-Train creation and updates reject invalid station IDs, missing stations, identical source/destination stations, and duplicate train numbers. A search with no matching trains returns `404`.
+Train creation and updates reject invalid station IDs, missing stations,
+identical source/destination stations, and duplicate train numbers. A search
+with no matching trains or schedules returns `404`.
+
+The `/search` endpoint first finds trains matching the route, then returns only
+`AVAILABLE` schedules for the requested date. Each result contains a populated
+`train` and a schedule summary with its ID, journey date, departure time,
+arrival time, and status.
 
 Each class has the shape:
 
@@ -425,7 +439,6 @@ The directory currently contains no files or helper implementations.
 The following describes the current backend behavior and should be considered when integrating or operating it:
 
 - Station, train, and schedule mutation endpoints under their public prefixes are unauthenticated. Admin-protected equivalents also exist for trains and schedules.
-- The admin train update controller contains a `sourec` identifier typo in the source-station lookup. A partial update that includes `source` can therefore fail with a server-side error.
 - Some admin train validation response properties are misspelled (`mesage` and `messge`).
 - The admin dashboard error path calls `next(error)` and then attempts another response, which can result in a headers-already-sent error.
 - There is no custom application-level error handler, request validation layer, rate limiter, refresh-token flow, or audit log.
@@ -435,6 +448,10 @@ The following describes the current backend behavior and should be considered wh
 - Public train creation/update checks that `classes` is a non-empty array but does not perform the same per-class positivity checks as the admin train creation path.
 - CORS is enabled for all origins through `cors()`.
 - The dependencies include both `bcrypt` and `bcryptjs`; the controllers use `bcrypt`.
+- The client and server currently use different default API ports in the
+  repository: the frontend Axios client points to `http://localhost:5000/api`,
+  while `server.js` defaults to port `5001`. These values must be aligned for
+  local end-to-end integration.
 
 These notes document the repository as it currently exists; they are not implementation changes.
 
@@ -444,14 +461,15 @@ For a normal customer booking journey, clients should call APIs in this order:
 
 1. `POST /api/auth/register` or `POST /api/auth/login`.
 2. `GET /api/stations` to load station choices.
-3. `GET /api/trains?source=<stationId>&destination=<stationId>`.
-4. `GET /api/schedules?journeyDate=<date>` and select a compatible schedule.
-5. `POST /api/bookings` with the selected train, schedule, class, and passengers.
-6. `POST /api/payments` for the booking.
-7. `POST /api/payments/process` with the simulated result.
-8. `GET /api/bookings` or `GET /api/payments` to display the resulting records.
+3. `GET /api/trains/search?source=<stationId>&destination=<stationId>&journeyDate=<date>`
+   to retrieve route-compatible available schedules.
+4. Select a returned train, schedule, and class.
+5. `POST /api/bookings` with the selected train, schedule, class, and
+   passengers.
+6. `POST /api/payments` for the created booking.
+7. `POST /api/payments/process` with the simulated `SUCCESS` or `FAILED`
+   result.
+8. `GET /api/bookings` or `GET /api/payments` to display the resulting
+   records.
 
 For administration, authenticate as an existing `ADMIN` user, then send the JWT on every `/api/admin` request.
-
-
-
