@@ -632,6 +632,12 @@ Base path: `/api/auth`
 | `POST` | `/login` | Public | Authenticate a user and return a JWT |
 | `GET` | `/me` | JWT | Return the current authenticated user |
 
+Protected requests use the following header:
+
+```http
+Authorization: Bearer <jwt-token>
+```
+
 ### Station endpoints
 
 Base path: `/api/stations`
@@ -656,6 +662,13 @@ Base path: `/api/trains`
 | `GET` | `/:id` | Fetch one train |
 | `PUT` | `/:id` | Update a train |
 | `DELETE` | `/:id` | Delete a train |
+
+The search endpoint first matches trains by source and destination, then
+returns only schedules with `status: "AVAILABLE"` for the requested journey
+date. Its successful response uses `results`, where each item contains a
+populated `train` and a schedule summary with `_id`, `journeyDate`,
+`departureTime`, `arrivalTime`, and `status`. No matching trains or schedules
+returns `404`.
 
 ### Schedule endpoints
 
@@ -942,7 +955,7 @@ deployment.
 | High | Zero-seat protection | The current pre-check rejects insufficient availability, but concurrent requests can still race because reservation is not atomic. |
 | High | Payment failure lifecycle | Failed payments update payment status to `FAILED`, while the booking remains non-cancelled. A final booking lifecycle policy is required. |
 | High | Transaction consistency | Booking creation, payment creation, payment processing, and status updates are not coordinated by a shared MongoDB transaction. |
-| High | Schedule filtering | Booking creation checks for an available schedule; search behavior should consistently exclude cancelled schedules at every relevant query boundary. |
+| High | Schedule lifecycle | Search excludes cancelled schedules and booking creation rejects unavailable schedules, but schedule cancellation does not yet define a complete policy for existing bookings. |
 | High | Concurrency safety | Separate availability calculation and booking creation can theoretically oversell seats under concurrent requests. |
 | Medium | Input validation | Basic validation exists, but field lengths, age limits, numeric bounds, duplicate class types, and complete request schemas need strengthening. |
 | Medium | Frontend error UX | Some flows use browser alerts and console logging; API errors should be presented consistently using shared UI notifications. |
