@@ -14,8 +14,15 @@ modify or implement the pending functionality described in the roadmap.
 
 ---
 
+## Preview
+
+![Ticket Booking System home page](client/src/assets/Project-Image/Home_Page.png)
+
+---
+
 ## Table of contents
 
+- [Preview](#preview)
 - [Project overview](#project-overview)
 - [Features](#features)
 - [Technology stack](#technology-stack)
